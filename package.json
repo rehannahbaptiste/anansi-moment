@@ -1,0 +1,17 @@
+{
+  "name": "voice-loop",
+  "version": "1.0.0",
+  "description": "\"Mic -> text -> ElevenLabs -> audio\"",
+  "main": "server.js",
+  "scripts": {
+    "test": "node test"
+  },
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

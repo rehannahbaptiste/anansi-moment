@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mic → ElevenLabs Echo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #020617;
+      border-radius: 1.5rem;
+      padding: 2rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+    p.subtitle {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      color: #9ca3af;
+      font-size: 0.95rem;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      padding: 0.75rem;
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      background: #020617;
+      color: #e5e7eb;
+      resize: vertical;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+    textarea:focus {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
+    }
+    .buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    button {
+      flex: 1;
+      border: none;
+      border-radius: 999px;
+      padding: 0.7rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+    }
+    button:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+    .btn-mic {
+      background: #22c55e;
+      color: #022c22;
+      box-shadow: 0 10px 20px rgba(34,197,94,0.35);
+    }
+    .btn-mic.listening {
+      background: #f97316;
+      color: #0f172a;
+      box-shadow: 0 10px 20px rgba(249,115,22,0.4);
+    }
+    .btn-play {
+      background: #4f46e5;
+      color: #e5e7eb;
+      box-shadow: 0 10px 20px rgba(79,70,229,0.35);
+    }
+    .status {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      min-height: 1.2em;
+      margin-bottom: 0.5rem;
+    }
+    audio {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: rgba(15,23,42,0.8);
+      color: #9ca3af;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Voice Echo</h1>
+    <p class="subtitle">Speak into your mic, send the transcript to ElevenLabs, and hear it back.</p>
+    <div class="badge">⚠️ Works best in Chrome over HTTPS</div>
+
+    <textarea id="text" placeholder="Your recognized text will appear here. You can also edit it before sending."></textarea>
+
+    <div class="buttons">
+      <button id="micBtn" class="btn-mic">
+        🎙️ Start talking
+      </button>
+      <button id="playBtn" class="btn-play">
+        🔁 Send to ElevenLabs
+      </button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <audio id="audio" controls></audio>
+  </div>
+
+  <script>
+    const textArea = document.getElementById("text");
+    const micBtn = document.getElementById("micBtn");
+    const playBtn = document.getElementById("playBtn");
+    const statusEl = document.getElementById("status");
+    const audioEl = document.getElementById("audio");
+
+    // --- Speech recognition setup ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let listening = false;
+
+    if (!SpeechRecognition) {
+      statusEl.textContent = "Your browser does not support the Web Speech API. Try Chrome on desktop.";
+      micBtn.disabled = true;
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition.onstart = () => {
+        listening = true;
+        micBtn.classList.add("listening");
+        micBtn.textContent = "🛑 Stop";
+        statusEl.textContent = "Listening… speak now.";
+      };
+
+      recognition.onerror = (event) => {
+        console.error(event);
+        statusEl.textContent = "Mic error: " + (event.error || "unknown error");
+        listening = false;
+        micBtn.classList.remove("listening");
+        micBtn.textContent = "🎙️ Start talking";
+      };
+
+      recognition.onend = () => {
+        listening = false;
+        micBtn.classList.remove("listening");
+        micBtn.textContent = "🎙️ Start talking";
+        if (!statusEl.textContent.startsWith("Mic error")) {
+          statusEl.textContent = "Stopped listening.";
+        }
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript + " ";
+        }
+        textArea.value = transcript.trim();
+      };
+    }
+
+    micBtn.addEventListener("click", () => {
+      if (!recognition) return;
+
+      if (!listening) {
+        try {
+          recognition.start();
+        } catch (e) {
+          // some browsers throw if called too quickly
+          console.error(e);
+        }
+      } else {
+        recognition.stop();
+      }
+    });
+
+    // --- ElevenLabs integration ---
+    playBtn.addEventListener("click", async () => {
+      const text = textArea.value.trim();
+      if (!text) {
+        statusEl.textContent = "Type or speak some text first.";
+        return;
+      }
+
+      statusEl.textContent = "Sending to ElevenLabs…";
+
+      try {
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          console.error("TTS error", error);
+          statusEl.textContent = "Error from server / ElevenLabs.";
+          return;
+        }
+
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        audioEl.src = audioUrl;
+        await audioEl.play();
+        statusEl.textContent = "Playing response from ElevenLabs.";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Network error talking to the server.";
+      }
+    });
+  </script>
+</body>
+</html>
